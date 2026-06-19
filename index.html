@@ -345,7 +345,7 @@ function beginRace(){
   const config={
     type:Phaser.AUTO, width:COURSE_W, height:600, parent:'game',
     backgroundColor:'#0a0c10',
-    physics:{ default:'matter', matter:{ gravity:{x:0,y:1.1}, enableSleep:false } },
+    physics:{ default:'matter', matter:{ gravity:{x:0,y:0.95}, enableSleep:false } },
     scene:{ create:sceneCreate, update:sceneUpdate }
   };
   game=new Phaser.Game(config);
@@ -386,7 +386,7 @@ function sceneCreate(){
     const y=40-Math.floor(i/8)*26;
     const ball=scene.matter.add.image(x,y,'ball',null,{
       shape:{type:'circle',radius:10},
-      restitution:0.35, friction:0.005, frictionAir:0.0006, density:0.0015, label:'ball'
+      restitution:0.68, friction:0.004, frictionAir:0.0005, density:0.0015, label:'ball'
     });
     ball.setTint(e.color);
     ball.entry=e; ball.finished=false;
@@ -448,15 +448,15 @@ function buildCourse(scene){
 function addRamp(scene,x,y,w,h,angle){
   const r=scene.add.rectangle(x,y,w,h,0x3a4150).setStrokeStyle(1,0x4a5161);
   r.rotation=angle;
-  scene.matter.add.gameObject(r,{isStatic:true,angle:angle,friction:0.02,restitution:0.2,label:'wall'});
+  scene.matter.add.gameObject(r,{isStatic:true,angle:angle,friction:0.01,restitution:0.55,label:'wall'});
 }
 function addPeg(scene,x,y,r){
   const c=scene.add.circle(x,y,r,0x4a5161);
-  scene.matter.add.gameObject(c,{isStatic:true,shape:{type:'circle',radius:r},restitution:0.4,label:'wall'});
+  scene.matter.add.gameObject(c,{isStatic:true,shape:{type:'circle',radius:r},restitution:0.9,label:'wall'});
 }
 function addBumper(scene,x,y,r){
   const c=scene.add.circle(x,y,r,0xff7ad9).setStrokeStyle(2,0xffffff);
-  scene.matter.add.gameObject(c,{isStatic:true,shape:{type:'circle',radius:r},restitution:1.4,label:'wall'});
+  scene.matter.add.gameObject(c,{isStatic:true,shape:{type:'circle',radius:r},restitution:1.3,label:'wall'});
 }
 function addBoost(scene,x,y,w,h){
   const r=scene.add.rectangle(x,y,w,h,0x37d67a,0.25).setStrokeStyle(1,0x37d67a);
@@ -466,7 +466,7 @@ function addBoost(scene,x,y,w,h){
 function addSpinner(scene,x,y,w,h,speed){
   const bar=scene.add.rectangle(x,y,w,h,0xffcc33).setStrokeStyle(2,0x000000);
   scene.add.circle(x,y,7,0xffffff);
-  scene.matter.add.gameObject(bar,{isStatic:true,label:'wall',restitution:0.3});
+  scene.matter.add.gameObject(bar,{isStatic:true,label:'wall',restitution:0.65});
   scene.spinners.push({obj:bar,body:bar.body,speed:speed});
 }
 
