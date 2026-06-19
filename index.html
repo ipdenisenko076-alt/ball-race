@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Ball Race — прототип</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1115; --card:#181b22; --card2:#20242e; --text:#e8eaed;
+    --muted:#8a92a6; --accent:#ffcc33; --accent2:#3aa0ff; --ok:#37d67a; --line:#2a2f3a;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  #app{max-width:460px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;}
+  .screen{display:none;flex:1;flex-direction:column;}
+  .screen.active{display:flex;}
+
+  /* Lobby */
+  header.top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;}
+  .brand{font-weight:800;font-size:20px;letter-spacing:.5px;}
+  .brand span{color:var(--accent);}
+  .bal{background:var(--card);border:1px solid var(--line);border-radius:999px;
+    padding:8px 14px;font-weight:700;display:flex;gap:6px;align-items:center;}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;}
+  .card .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.6px;}
+  .card .value{font-size:22px;font-weight:800;margin-top:4px;}
+  .value.accent{color:var(--accent);}
+  .value.blue{color:var(--accent2);}
+  .timer-wrap{padding:14px 16px;}
+  .timer-card{background:linear-gradient(135deg,#20242e,#171a21);border:1px solid var(--line);
+    border-radius:16px;padding:16px;text-align:center;}
+  .timer-card .t{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;}
+  .timer-card .lbl{color:var(--muted);font-size:13px;margin-top:2px;}
+
+  .buy{padding:0 16px;}
+  .buy .row{display:flex;align-items:center;gap:10px;margin-top:10px;}
+  .stepper{display:flex;align-items:center;background:var(--card2);border:1px solid var(--line);
+    border-radius:14px;overflow:hidden;flex:1;}
+  .stepper button{width:52px;height:52px;border:none;background:transparent;color:var(--text);
+    font-size:26px;font-weight:700;cursor:pointer;}
+  .stepper input{flex:1;min-width:0;background:transparent;border:none;color:var(--text);
+    text-align:center;font-size:22px;font-weight:800;outline:none;}
+  .quick{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .quick button{flex:1;padding:10px;background:var(--card2);border:1px solid var(--line);
+    color:var(--text);border-radius:12px;font-weight:700;cursor:pointer;}
+  .cost{color:var(--muted);text-align:center;margin-top:10px;font-size:14px;}
+  .cost b{color:var(--accent);}
+  .btn{display:block;width:100%;padding:16px;border:none;border-radius:16px;font-size:17px;
+    font-weight:800;cursor:pointer;margin-top:12px;}
+  .btn.primary{background:var(--accent);color:#1a1400;}
+  .btn.primary:disabled{opacity:.4;cursor:not-allowed;}
+  .btn.ghost{background:transparent;color:var(--accent2);border:1px solid var(--line);}
+
+  .lb{padding:16px;}
+  .lb h3{margin:0 0 10px;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;}
+  .lb .item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;margin-bottom:8px;}
+  .lb .rank{width:24px;height:24px;border-radius:50%;background:var(--card2);display:flex;
+    align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;}
+  .lb .rank.g1{background:var(--accent);color:#1a1400;}
+  .lb .rank.g2{background:#c9d1e0;color:#13151c;}
+  .lb .rank.g3{background:#d08a4a;color:#1a1400;}
+  .lb .nm{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lb .nm.me{color:var(--accent);}
+  .lb .won{font-weight:800;color:var(--ok);}
+  .empty{color:var(--muted);font-size:14px;text-align:center;padding:14px;}
+
+  /* Race */
+  #race-screen{position:relative;background:#0a0c10;}
+  #game{flex:1;display:flex;align-items:center;justify-content:center;}
+  #game canvas{display:block;max-width:100%;}
+  .race-hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;
+    padding:10px 14px;background:linear-gradient(#0a0c10,rgba(10,12,16,0));pointer-events:none;z-index:5;}
+  .race-hud .pool{font-weight:800;color:var(--accent);}
+  .race-hud .cnt{color:var(--muted);font-size:13px;}
+
+  /* Results */
+  .modal{position:fixed;inset:0;background:rgba(5,7,10,.82);display:none;align-items:center;
+    justify-content:center;padding:20px;z-index:50;}
+  .modal.active{display:flex;}
+  .modal .box{background:var(--card);border:1px solid var(--line);border-radius:20px;
+    padding:22px;width:100%;max-width:380px;}
+  .modal h2{margin:0 0 4px;text-align:center;}
+  .modal .sub{text-align:center;color:var(--muted);margin-bottom:16px;font-size:14px;}
+  .podium .p{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;
+    margin-bottom:8px;background:var(--card2);}
+  .podium .medal{font-size:22px;}
+  .podium .pn{flex:1;font-weight:700;}
+  .podium .pw{font-weight:800;color:var(--ok);}
+  .youwin{text-align:center;font-weight:800;color:var(--ok);margin:10px 0;font-size:16px;}
+  .youlose{text-align:center;color:var(--muted);margin:10px 0;}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--card2);
+    border:1px solid var(--line);padding:12px 18px;border-radius:12px;font-weight:600;
+    opacity:0;transition:opacity .25s;z-index:60;pointer-events:none;}
+  .toast.show{opacity:1;}
+  footer{padding:10px 16px 18px;text-align:center;color:var(--muted);font-size:11px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- LOBBY -->
+  <div id="lobby-screen" class="screen active">
+    <header class="top">
+      <div class="brand">Ball<span>Race</span></div>
+      <div class="bal">⭐ <span id="balance">0</span></div>
+    </header>
+
+    <div class="stat-grid">
+      <div class="card">
+        <div class="label">Призовой фонд</div>
+        <div class="value accent">⭐ <span id="pool">0</span></div>
+      </div>
+      <div class="card">
+        <div class="label">Ваши шары в гонке</div>
+        <div class="value blue"><span id="myballs">0</span></div>
+      </div>
+    </div>
+
+    <div class="timer-wrap">
+      <div class="timer-card">
+        <div class="t" id="timer">00:30</div>
+        <div class="lbl">до старта гонки · участников: <span id="entrants">0</span></div>
+      </div>
+    </div>
+
+    <div class="buy">
+      <div class="row">
+        <div class="stepper">
+          <button id="minus">−</button>
+          <input id="qty" type="number" value="1" min="1" max="300" inputmode="numeric" />
+          <button id="plus">+</button>
+        </div>
+      </div>
+      <div class="quick">
+        <button data-q="1">1</button>
+        <button data-q="5">5</button>
+        <button data-q="10">10</button>
+        <button data-q="50">50</button>
+        <button data-q="300">макс</button>
+      </div>
+      <div class="cost">Цена: <b id="cost">30</b> ⭐ · 1 шар = 30 ⭐</div>
+      <button class="btn primary" id="buy">Купить шары</button>
+      <button class="btn ghost" id="start-now">Запустить гонку сейчас (тест)</button>
+    </div>
+
+    <div class="lb">
+      <h3>Таблица лидеров (за сессию)</h3>
+      <div id="leaderboard"><div class="empty">Пока пусто — выиграйте гонку!</div></div>
+    </div>
+
+    <footer>Прототип. Звёзды условные, реальные платежи не подключены.</footer>
+  </div>
+
+  <!-- RACE -->
+  <div id="race-screen" class="screen">
+    <div class="race-hud">
+      <div class="pool">⭐ <span id="race-pool">0</span></div>
+      <div class="cnt">Финишировало: <span id="finished">0</span>/<span id="total">0</span></div>
+    </div>
+    <div id="game"></div>
+  </div>
+
+</div>
+
+<!-- Results -->
+<div class="modal" id="results">
+  <div class="box">
+    <h2>🏁 Финиш!</h2>
+    <div class="sub">Призовой фонд ⭐ <span id="res-pool">0</span></div>
+    <div class="podium" id="podium"></div>
+    <div id="res-you"></div>
+    <button class="btn primary" id="res-close">В лобби</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   Ball Race — прототип (без реальных денег)
+   ============================================================ */
+
+// Telegram WebApp (работает и без него, в обычном браузере)
+const TG = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if (TG) { try { TG.ready(); TG.expand(); } catch(e){} }
+function tgUserName(){
+  if (TG && TG.initDataUnsafe && TG.initDataUnsafe.user){
+    const u = TG.initDataUnsafe.user;
+    return u.username ? '@'+u.username : (u.first_name || 'Вы');
+  }
+  return 'Вы';
+}
+
+const CONFIG = {
+  BALL_PRICE: 30,
+  MAX_BALLS: 300,
+  START_BALANCE: 300,
+  RACE_INTERVAL: 30,
+  PRIZE_SPLIT: [0.70, 0.20, 0.10],
+  MIN_RACERS: 6,
+  MAX_RACE_TIME: 35000
+};
+
+const PLAYER = tgUserName();
+
+const state = {
+  balance: CONFIG.START_BALANCE,
+  myBalls: 0,
+  countdown: CONFIG.RACE_INTERVAL,
+  racing: false,
+  leaderboard: {}
+};
+
+const BOT_NAMES = ['@nikita','@mary','@crypto_max','@lena','@дима','@alex','@kira','@oleg',
+  '@sofia','@roman','@vlad','@anna','@bot_777','@lucky','@misha','@yulia'];
+
+const COLORS = [0xff3b3b,0x3aa0ff,0x37d67a,0xffcc33,0xff7ad9,0x9b5cff,0x2ee6d6,0xff9f43,
+  0xff5e7e,0x6c8cff,0x52e07a,0xe0e0e0,0xffd24a,0x4ad6ff,0xc44aff,0x4affa3];
+
+const $ = id => document.getElementById(id);
+const el = {
+  balance:$('balance'), pool:$('pool'), myballs:$('myballs'), timer:$('timer'),
+  entrants:$('entrants'), qty:$('qty'), cost:$('cost'), buy:$('buy'),
+  startNow:$('start-now'), leaderboard:$('leaderboard'),
+  minus:$('minus'), plus:$('plus'),
+  lobby:$('lobby-screen'), race:$('race-screen'),
+  racePool:$('race-pool'), finished:$('finished'), total:$('total'),
+  results:$('results'), podium:$('podium'), resPool:$('res-pool'),
+  resYou:$('res-you'), resClose:$('res-close'), toast:$('toast')
+};
+
+function expectedRacers(){ return Math.max(CONFIG.MIN_RACERS, state.myBalls); }
+function currentPool(){ return expectedRacers() * CONFIG.BALL_PRICE; }
+
+function render(){
+  el.balance.textContent = state.balance;
+  el.myballs.textContent = state.myBalls;
+  el.pool.textContent = currentPool();
+  el.entrants.textContent = expectedRacers();
+  const q = clampQty();
+  el.cost.textContent = q * CONFIG.BALL_PRICE;
+  el.buy.disabled = state.racing || (q*CONFIG.BALL_PRICE > state.balance);
+  renderLeaderboard();
+}
+
+function clampQty(){
+  let q = parseInt(el.qty.value,10);
+  if (isNaN(q)||q<1) q=1;
+  if (q>CONFIG.MAX_BALLS) q=CONFIG.MAX_BALLS;
+  el.qty.value=q;
+  return q;
+}
+
+function renderLeaderboard(){
+  const arr = Object.entries(state.leaderboard).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  if (!arr.length){ el.leaderboard.innerHTML='<div class="empty">Пока пусто — выиграйте гонку!</div>'; return; }
+  el.leaderboard.innerHTML = arr.map(([name,won],i)=>{
+    const g = i===0?'g1':i===1?'g2':i===2?'g3':'';
+    const me = name===PLAYER?' me':'';
+    return `<div class="item"><div class="rank ${g}">${i+1}</div>`+
+           `<div class="nm${me}">${escapeHtml(name)}</div>`+
+           `<div class="won">⭐ ${won}</div></div>`;
+  }).join('');
+}
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function toast(msg){
+  el.toast.textContent=msg; el.toast.classList.add('show');
+  clearTimeout(toast._t); toast._t=setTimeout(()=>el.toast.classList.remove('show'),1800);
+}
+
+// Покупка шаров
+el.minus.onclick=()=>{el.qty.value=clampQty()-1; clampQty(); render();};
+el.plus.onclick =()=>{el.qty.value=clampQty()+1; clampQty(); render();};
+el.qty.oninput  =()=>render();
+document.querySelectorAll('.quick button').forEach(b=>{
+  b.onclick=()=>{ el.qty.value = b.dataset.q==='300'?CONFIG.MAX_BALLS:b.dataset.q; clampQty(); render(); };
+});
+el.buy.onclick=()=>{
+  if (state.racing) return;
+  const q=clampQty(), cost=q*CONFIG.BALL_PRICE;
+  if (cost>state.balance){ toast('Недостаточно звёзд'); return; }
+  if (state.myBalls+q>CONFIG.MAX_BALLS){ toast('Максимум '+CONFIG.MAX_BALLS+' шаров'); return; }
+  state.balance-=cost; state.myBalls+=q;
+  toast('Куплено шаров: '+q);
+  if (TG && TG.HapticFeedback){ try{TG.HapticFeedback.impactOccurred('medium');}catch(e){} }
+  render();
+};
+
+// Таймер
+let timerInt=null;
+function startCountdown(){
+  state.countdown=CONFIG.RACE_INTERVAL;
+  updateTimer();
+  clearInterval(timerInt);
+  timerInt=setInterval(()=>{
+    if (state.racing) return;
+    state.countdown--;
+    if (state.countdown<=0){ clearInterval(timerInt); beginRace(); return; }
+    updateTimer();
+  },1000);
+}
+function updateTimer(){
+  const m=String(Math.floor(state.countdown/60)).padStart(2,'0');
+  const s=String(state.countdown%60).padStart(2,'0');
+  el.timer.textContent=`${m}:${s}`;
+}
+
+el.startNow.onclick=()=>{ if(!state.racing){ clearInterval(timerInt); beginRace(); } };
+
+// ============================================================
+//  ГОНКА (Phaser + Matter)
+// ============================================================
+let game=null;
+const COURSE_W=400;
+let COURSE_H=0;
+
+function buildEntries(){
+  const entries=[];
+  for(let i=0;i<state.myBalls;i++) entries.push({name:PLAYER, mine:true});
+  const need=Math.max(CONFIG.MIN_RACERS-entries.length, 0);
+  const shuffled=[...BOT_NAMES].sort(()=>Math.random()-0.5);
+  for(let i=0;i<need;i++) entries.push({name:shuffled[i%shuffled.length], mine:false});
+  entries.sort(()=>Math.random()-0.5);
+  entries.forEach((e,i)=>{ e.color=COLORS[i%COLORS.length]; e.id=i; });
+  return entries;
+}
+
+function beginRace(){
+  state.racing=true;
+  const entries=buildEntries();
+  const pool=entries.length*CONFIG.BALL_PRICE;
+  el.racePool.textContent=pool;
+  el.total.textContent=entries.length;
+  el.finished.textContent=0;
+  el.lobby.classList.remove('active');
+  el.race.classList.add('active');
+
+  const config={
+    type:Phaser.AUTO, width:COURSE_W, height:600, parent:'game',
+    backgroundColor:'#0a0c10',
+    physics:{ default:'matter', matter:{ gravity:{x:0,y:1.1}, enableSleep:false } },
+    scene:{ create:sceneCreate, update:sceneUpdate }
+  };
+  game=new Phaser.Game(config);
+  game.registry.set('entries',entries);
+  game.registry.set('pool',pool);
+}
+
+function sceneCreate(){
+  const scene=this;
+  const entries=scene.game.registry.get('entries');
+  const M=Phaser.Physics.Matter.Matter;
+  scene.M=M;
+  scene.finishOrder=[];
+  scene.spinners=[];
+  scene.balls=[];
+  scene.labels=[];
+  scene.startTime=scene.time.now;
+
+  COURSE_H = 3400 + entries.length*60;
+  scene.matter.world.setBounds(0,0,COURSE_W,COURSE_H,64,true,true,false,true);
+  scene.cameras.main.setBounds(0,0,COURSE_W,COURSE_H);
+
+  const g=scene.add.graphics();
+  g.fillStyle(0xffffff,1); g.fillCircle(11,11,11); g.generateTexture('ball',22,22); g.destroy();
+
+  buildCourse(scene);
+
+  const finishY=COURSE_H-70;
+  scene.finishY=finishY;
+  scene.add.rectangle(COURSE_W/2,finishY,COURSE_W,6,0x37d67a,0.9);
+  for(let i=0;i<COURSE_W;i+=20){
+    scene.add.rectangle(i,finishY,10,10,(i/20)%2?0xffffff:0x000000,0.5);
+  }
+  scene.matter.add.rectangle(COURSE_W/2,finishY,COURSE_W,10,{isStatic:true,isSensor:true,label:'finish'});
+
+  entries.forEach((e,i)=>{
+    const x=30+(i%8)*((COURSE_W-60)/7);
+    const y=40-Math.floor(i/8)*26;
+    const ball=scene.matter.add.image(x,y,'ball',null,{
+      shape:{type:'circle',radius:10},
+      restitution:0.35, friction:0.005, frictionAir:0.0006, density:0.0015, label:'ball'
+    });
+    ball.setTint(e.color);
+    ball.entry=e; ball.finished=false;
+    scene.balls.push(ball);
+    const lbl=scene.add.text(x,y-18,e.name,{fontFamily:'sans-serif',fontSize:'10px',
+      color:'#ffffff',stroke:'#000000',strokeThickness:3}).setOrigin(0.5);
+    scene.labels.push(lbl);
+  });
+
+  scene.matter.world.on('collisionstart',(ev)=>{
+    ev.pairs.forEach(p=>{
+      const a=p.bodyA,b=p.bodyB;
+      let ballBody=null;
+      if(a.label==='finish'&&b.label==='ball') ballBody=b;
+      else if(b.label==='finish'&&a.label==='ball') ballBody=a;
+      if(ballBody && ballBody.gameObject && !ballBody.gameObject.finished){
+        ballBody.gameObject.finished=true;
+        scene.finishOrder.push(ballBody.gameObject.entry);
+        el.finished.textContent=scene.finishOrder.length;
+        ballBody.gameObject.setVelocity(0,2);
+        if(scene.finishOrder.length>=scene.balls.length){ endRace(scene); }
+        else if(scene.finishOrder.length>=Math.min(5,scene.balls.length)){ endRace(scene); }
+      }
+      const boost=(a.label==='boost'?a:b.label==='boost'?b:null);
+      const theBall=(a.label==='ball'?a:b.label==='ball'?b:null);
+      if(boost && theBall){ theBall.gameObject.setVelocity(theBall.velocity.x*0.6, 9.5); }
+    });
+  });
+}
+
+function buildCourse(scene){
+  const railColor=0x2a2f3a;
+  scene.add.rectangle(0,COURSE_H/2,6,COURSE_H,railColor);
+  scene.add.rectangle(COURSE_W,COURSE_H/2,6,COURSE_H,railColor);
+
+  let y=180, row=0;
+  while(y<COURSE_H-220){
+    const kind=row%5;
+    if(kind===0){
+      addRamp(scene,70,y,150,14,-0.32);
+      addRamp(scene,COURSE_W-70,y,150,14,0.32);
+    } else if(kind===1){
+      addSpinner(scene,COURSE_W/2,y,150,14,(row%2?1:-1)*0.045);
+    } else if(kind===2){
+      for(let i=1;i<=4;i++){ addPeg(scene,i*(COURSE_W/5),y,9); }
+    } else if(kind===3){
+      addBumper(scene,COURSE_W*0.3,y,16);
+      addBumper(scene,COURSE_W*0.7,y,16);
+      addBoost(scene,COURSE_W/2,y+10,70,26);
+    } else {
+      addSpinner(scene,COURSE_W*0.3,y,90,12,0.05);
+      addSpinner(scene,COURSE_W*0.7,y,90,12,-0.05);
+    }
+    y += 150 + Math.floor(Math.random()*60);
+    row++;
+  }
+}
+
+function addRamp(scene,x,y,w,h,angle){
+  const r=scene.add.rectangle(x,y,w,h,0x3a4150).setStrokeStyle(1,0x4a5161);
+  r.rotation=angle;
+  scene.matter.add.gameObject(r,{isStatic:true,angle:angle,friction:0.02,restitution:0.2,label:'wall'});
+}
+function addPeg(scene,x,y,r){
+  const c=scene.add.circle(x,y,r,0x4a5161);
+  scene.matter.add.gameObject(c,{isStatic:true,shape:{type:'circle',radius:r},restitution:0.4,label:'wall'});
+}
+function addBumper(scene,x,y,r){
+  const c=scene.add.circle(x,y,r,0xff7ad9).setStrokeStyle(2,0xffffff);
+  scene.matter.add.gameObject(c,{isStatic:true,shape:{type:'circle',radius:r},restitution:1.4,label:'wall'});
+}
+function addBoost(scene,x,y,w,h){
+  const r=scene.add.rectangle(x,y,w,h,0x37d67a,0.25).setStrokeStyle(1,0x37d67a);
+  scene.add.text(x,y,'▼',{fontSize:'14px',color:'#37d67a'}).setOrigin(0.5);
+  scene.matter.add.gameObject(r,{isStatic:true,isSensor:true,label:'boost'});
+}
+function addSpinner(scene,x,y,w,h,speed){
+  const bar=scene.add.rectangle(x,y,w,h,0xffcc33).setStrokeStyle(2,0x000000);
+  scene.add.circle(x,y,7,0xffffff);
+  scene.matter.add.gameObject(bar,{isStatic:true,label:'wall',restitution:0.3});
+  scene.spinners.push({obj:bar,body:bar.body,speed:speed});
+}
+
+function sceneUpdate(){
+  const scene=this;
+  const M=scene.M;
+  scene.spinners.forEach(s=>{
+    const a=s.body.angle+s.speed;
+    M.Body.setAngle(s.body,a);
+    M.Body.setAngularVelocity(s.body,s.speed);
+    s.obj.rotation=a;
+  });
+  for(let i=0;i<scene.balls.length;i++){
+    const b=scene.balls[i], l=scene.labels[i];
+    l.x=b.x; l.y=b.y-18;
+    if(b.finished) l.setAlpha(0.25);
+  }
+  let leadY=0;
+  scene.balls.forEach(b=>{ if(!b.finished && b.y>leadY) leadY=b.y; });
+  if(leadY>0){
+    const target=Phaser.Math.Clamp(leadY-260,0,COURSE_H-600);
+    scene.cameras.main.scrollY += (target-scene.cameras.main.scrollY)*0.12;
+  }
+  if(scene.time.now-scene.startTime>CONFIG.MAX_RACE_TIME && state.racing){ endRace(scene); }
+}
+
+let ending=false;
+function endRace(scene){
+  if(ending) return; ending=true;
+  const finishedSet=new Set(scene.finishOrder);
+  const rest=scene.balls
+    .filter(b=>!finishedSet.has(b.entry))
+    .sort((a,b)=>b.y-a.y)
+    .map(b=>b.entry);
+  const order=[...scene.finishOrder, ...rest];
+  const pool=scene.game.registry.get('pool');
+  setTimeout(()=>{ finalizeResults(order,pool); ending=false; }, 900);
+}
+
+function finalizeResults(order,pool){
+  const prizes=CONFIG.PRIZE_SPLIT.map(p=>Math.round(pool*p));
+  let youWon=0;
+  const podium=[];
+  for(let i=0;i<3 && i<order.length;i++){
+    const e=order[i];
+    podium.push({name:e.name, prize:prizes[i], mine:e.mine});
+    state.leaderboard[e.name]=(state.leaderboard[e.name]||0)+prizes[i];
+    if(e.mine){ youWon+=prizes[i]; }
+  }
+  state.balance+=youWon;
+
+  el.resPool.textContent=pool;
+  const medals=['🥇','🥈','🥉'];
+  el.podium.innerHTML=podium.map((p,i)=>
+    `<div class="p"><div class="medal">${medals[i]}</div>`+
+    `<div class="pn" style="${p.mine?'color:var(--accent)':''}">${escapeHtml(p.name)}</div>`+
+    `<div class="pw">⭐ ${p.prize}</div></div>`).join('');
+  el.resYou.innerHTML = youWon>0
+    ? `<div class="youwin">🎉 Вы выиграли ⭐ ${youWon}!</div>`
+    : `<div class="youlose">В этот раз без приза. Попробуйте ещё!</div>`;
+  el.results.classList.add('active');
+  if(TG && TG.HapticFeedback){ try{TG.HapticFeedback.notificationOccurred(youWon>0?'success':'warning');}catch(e){} }
+}
+
+el.resClose.onclick=()=>{
+  el.results.classList.remove('active');
+  if(game){ game.destroy(true); game=null; }
+  el.race.classList.remove('active');
+  el.lobby.classList.add('active');
+  state.racing=false;
+  state.myBalls=0;
+  render();
+  startCountdown();
+};
+
+// старт
+clampQty();
+render();
+startCountdown();
+</script>
+</body>
+</html>
